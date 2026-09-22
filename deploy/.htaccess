@@ -1,0 +1,81 @@
+# GlitchTech Games — Apache config for Bluehost shared hosting.
+# Upload this alongside the exported site. Every block is guarded by
+# <IfModule>, so if a module is missing the site still serves correctly.
+# If anything here misbehaves you can simply delete this file: the site works
+# without it, you just lose HTTPS forcing, compression and caching.
+
+# ---------------------------------------------------------------- 404 page
+ErrorDocument 404 /404.html
+
+# ---------------------------------------------------------- force HTTPS
+# Turn this on AFTER Bluehost has issued the free SSL certificate for the
+# domain (cPanel > SSL/TLS Status > Run AutoSSL). Forcing HTTPS before the
+# certificate exists will show browser warnings.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # If you prefer the bare domain over www, uncomment these two lines:
+  # RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+  # RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# --------------------------------------------------------------- MIME types
+<IfModule mod_mime.c>
+  AddType image/webp                 .webp
+  AddType application/manifest+json  .webmanifest
+  AddType text/javascript            .js
+  AddType application/json           .json
+</IfModule>
+
+# -------------------------------------------------------------- compression
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml
+  AddOutputFilterByType DEFLATE text/javascript application/javascript
+  AddOutputFilterByType DEFLATE application/json application/xml
+  AddOutputFilterByType DEFLATE image/svg+xml
+  # WebP and PNG are already compressed — re-compressing wastes CPU.
+</IfModule>
+
+# ------------------------------------------------------------------ caching
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresDefault                        "access plus 1 hour"
+  ExpiresByType image/webp              "access plus 1 year"
+  ExpiresByType image/png               "access plus 1 year"
+  ExpiresByType image/x-icon            "access plus 1 year"
+  ExpiresByType font/woff2              "access plus 1 year"
+  ExpiresByType text/css                "access plus 1 year"
+  ExpiresByType text/javascript         "access plus 1 year"
+  ExpiresByType application/javascript  "access plus 1 year"
+  # HTML must stay fresh so a redeploy is visible immediately.
+  ExpiresByType text/html               "access plus 0 seconds"
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Next.js fingerprints everything under /_next/static, so it is safe to
+  # cache those forever.
+  <FilesMatch "\.(js|css|woff2|webp|png|svg|ico)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  <FilesMatch "\.html$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
+
+  # Modest hardening. No CSP here: the page uses inline styles for the
+  # animations, so a strict policy would need nonces and a server to set them.
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set X-Frame-Options "SAMEORIGIN"
+</IfModule>
+
+# ------------------------------------------------------------------ hygiene
+Options -Indexes
+
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>

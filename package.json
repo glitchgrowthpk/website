@@ -1,12 +1,16 @@
 {
-  "name": "glitch-site",
+  "name": "glitchtech-games-site",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 3100",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "verify": "node scripts/verify-platformer.mjs",
+    "shots": "node scripts/shots.mjs ./shots",
+    "og": "node scripts/make-og.mjs",
+    "deploy": "next build && node scripts/pack-deploy.mjs"
   },
   "dependencies": {
     "next": "16.3.5",
