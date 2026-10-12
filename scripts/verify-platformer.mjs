@@ -13,13 +13,23 @@ const check = (name, pass, detail = "") => {
 };
 
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1280, height: 820 } });
+const context = await browser.newContext({ viewport: { width: 1280, height: 820 } });
+// Skip the first-visit boot screen: it deliberately swallows the first key
+// press, which would eat the G below. verify-interactive.mjs covers the boot.
+await context.addInitScript(() => {
+  try {
+    sessionStorage.setItem("glitch.booted", "1");
+  } catch {}
+});
+const page = await context.newPage();
 
 const consoleErrors = [];
 page.on("console", (m) => m.type() === "error" && consoleErrors.push(m.text()));
 page.on("pageerror", (e) => consoleErrors.push(String(e)));
 
 await page.goto(URL, { waitUntil: "networkidle" });
+// RevealObserver adds this class from an effect, so it marks hydration.
+await page.waitForSelector("html.reveal-ready", { timeout: 60000 }).catch(() => {});
 await page.waitForTimeout(600);
 
 /* ------------------------------------------------------------- helpers */
@@ -71,14 +81,21 @@ await page.evaluate(() => window.scrollTo(0, document.getElementById("portfolio"
 await page.waitForTimeout(500);
 const a = await read();
 await hold("right", true);
-await page.waitForTimeout(500);
+// Poll rather than trusting a fixed window: the physics clamps dt per frame,
+// so a slow machine covers less ground per wall-clock second.
+const t0 = Date.now();
+let b = a;
+while (Date.now() - t0 < 2500) {
+  await page.waitForTimeout(100);
+  b = await read();
+  if (b.x - a.x > 120) break;
+}
 await hold("right", false);
 await page.waitForTimeout(80);
-const b = await read();
 check(
   "holding right walks the character",
   b.x - a.x > 120,
-  `moved ${Math.round(b.x - a.x)}px in 500ms`,
+  `moved ${Math.round(b.x - a.x)}px in ${Date.now() - t0}ms`,
 );
 
 /* ---------------------------------------------------- 4. landing on a card */
@@ -105,8 +122,9 @@ const restingOnPlatform = async () =>
 
 let perched = null;
 for (let i = 0; i < 14 && !perched; i++) {
+  // Jump height is variable now, so hold for a full jump.
   await hold("up", true);
-  await page.waitForTimeout(80);
+  await page.waitForTimeout(260);
   await hold("up", false);
   await page.waitForTimeout(140);
   perched = await restingOnPlatform();
@@ -171,7 +189,8 @@ check(
 
 await page.evaluate(() => document.getElementById("arcade").scrollIntoView());
 await page.waitForTimeout(700);
-await page.getByRole("button", { name: "PRESS START" }).click();
+// exact: the "Press Start" achievement popup is also a button.
+await page.getByRole("button", { name: "PRESS START", exact: true }).click();
 await page.waitForTimeout(500);
 
 const gemCount = await page.locator("[role=application] button[aria-label]").count();

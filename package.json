@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "verify": "node scripts/verify-platformer.mjs",
+    "verify": "node scripts/verify-platformer.mjs && node scripts/verify-interactive.mjs",
     "shots": "node scripts/shots.mjs ./shots",
     "og": "node scripts/make-og.mjs",
     "deploy": "next build && node scripts/pack-deploy.mjs"

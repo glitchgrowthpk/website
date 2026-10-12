@@ -16,7 +16,7 @@ download ~120MB of Chromium:
 ```bash
 npm i -D playwright && npx playwright install chromium
 
-npm run verify   # 13-check smoke test of the interactive parts
+npm run verify   # platformer/arcade smoke test (13) + interactive layer checks (27)
 npm run shots    # screenshots at desktop / mobile / reduced-motion
 npm run og       # regenerate public/og.png
 npm run deploy   # build + zip for shared hosting
@@ -70,12 +70,47 @@ an ARIA `radiogroup` with roving tabindex and full arrow-key navigation.
 
 ### 4. Small stuff
 
-- 12 coins hidden around the page. Walk into one, or just click it — the reward is
-  never locked behind the platformer. Collect all 12 for an achievement toast.
+- 12 coins hidden around the page, registered in `src/data/coins.ts` (the HUD
+  total comes from that list, so a new `<Coin>` needs an entry there). Walk into
+  one, or just click it — the reward is never locked behind the platformer.
 - Sound is **off by default** and entirely synthesised: `src/lib/audio.ts` is a
-  tiny WebAudio chiptune engine, so no audio files ship and no `AudioContext` is
-  created until the visitor opts in.
-- Konami code spills the roster down the screen.
+  tiny WebAudio SFX engine and `src/lib/music.ts` an original 8-bar chiptune
+  sequencer. No audio files ship, and no `AudioContext` exists until the
+  visitor opts in. The soundtrack setting is never persisted, so a return visit
+  never starts playing on its own.
+- Konami code spills the roster down the screen. Typing `crash` crashes the
+  page for a second.
+
+### 5. The interactive layer
+
+Everything below hangs off one provider, `src/lib/game-state.tsx` (`useGame()`):
+character, coins, achievements, XP/level, visited sections, settings, control
+mode and the pause menu. It restores progress from `localStorage` after mount
+and persists it under `glitch.*` keys.
+
+| Piece | Where | What it does |
+| --- | --- | --- |
+| Boot screen | `BootScreen.tsx` | ~1.9s CRT boot on the first visit per session. Server-rendered and CSS-driven, skips on any input, never shown again that session or under reduced motion, with CSS failsafes if JS never runs. |
+| Pause menu | `PauseMenu.tsx` | Native `<dialog>`: level select (the phone navigation), achievements, settings, controls. `P` or the HUD Menu button. |
+| Achievements | `Achievements.tsx`, `data/achievements.ts` | 16 achievements, XP and levels. Console-style popups, bottom-right on desktop, under the HUD on phones. |
+| Settings | pause menu | Sound, soundtrack, CRT overlay, reticle cursor, keyboard shortcuts (single-key shortcuts can be turned off, per WCAG 2.1.4), reset progress. |
+| Reticle cursor | `Cursor.tsx` | Fine pointers only. Locks onto interactive elements, shows `data-cursor` labels, pulls `data-magnetic` CTAs. Native cursor returns in dialogs, text fields and under reduced motion. |
+| Particles | `FxLayer.tsx`, `lib/fx.ts` | One canvas for every burst. Call `fx.burst()` / `fx.burstAt()` from anywhere; it idles at zero cost. |
+| Level map | `LevelNav.tsx` | Right-edge rail (lg+), visited tracking (all sizes), first-entry stage banners. |
+| Section headings | `Section.tsx` | Titles decode in on first view; the real text stays in the DOM for SEO and screen readers. |
+| Scroll reveal | `RevealObserver.tsx` | Opt in with `data-reveal`, `data-reveal="pop"` or `data-reveal="glitch"`, stagger with `--reveal-delay`. Nothing hides before hydration or under reduced motion. |
+| Arcade | `Arcade.tsx`, `lib/match3.ts` | Your fighter's PWR/SPD/LCK and the coins you've found change the fight (damage, boss timer, crits, HP). Idle hints, combo callouts, records. |
+| Pipeline | `Pipeline.tsx` | Your fighter rides the stage rail as you scroll; stages clear as it passes. |
+| Quest dialogue | `Partner.tsx`, `data/dialogue.ts` | RPG dialogue that routes to the right inbox with a pre-filled email. |
+| Walker | `PlayerLayer.tsx`, `data/quips.ts` | Coyote time, jump buffering, variable jump and a double jump; companion hints per section; naps when you go idle. |
+
+**Markup conventions** any component can use: `data-solid` (a platform for the
+walker), `data-reveal`, `data-cursor="LABEL"`, `data-magnetic`.
+
+**z-index map:** page content < walker 40 < level rail 45 < HUD 50 < touch
+controls 55 < toast 60 < achievement popups 65 < particle canvas 66 < Konami 70
+< boot screen 80 < CRT overlay 85 < cursor 200. Dialogs use the browser's top
+layer above all of these.
 
 ## Deploying
 
@@ -123,15 +158,18 @@ ever misbehaves on your host.
 
 ## Accessibility & performance notes
 
-- `prefers-reduced-motion` removes the walking character, parallax, bobbing and
-  all transitions; every section still reads and the arcade still plays.
+- `prefers-reduced-motion` removes the boot screen, the ambient walker,
+  parallax, particles, the reticle cursor, reveals and all transitions. Every
+  section still reads, the arcade still plays, and the platformer still works
+  once you take control (it's movement you start yourself).
 - Semantic landmarks, one `h1`, skip link, visible focus rings, `aria-live` for
   score/coin/board announcements, labelled controls.
 - Small text sits at or above 4.5:1 against the background.
 - No horizontal overflow at 390px, 768px or 1440px (asserted by `npm run shots`).
-- All 23 sprites + 12 game icons total ~390KB as WebP. No animation library —
-  everything is CSS plus a single `requestAnimationFrame` loop that pauses when
-  the tab is hidden.
+- All 23 sprites + 12 game icons total ~390KB as WebP. No animation or audio
+  library — everything is CSS, Canvas 2D, WebAudio and `requestAnimationFrame`
+  loops that stop when idle, off screen or in a hidden tab. The interactive
+  layer adds about 76KB of gzipped JS (278KB total, framework included).
 - Statically prerendered; JSON-LD for the organisation and all 12 games.
 
 ## Content
@@ -143,6 +181,11 @@ Everything is real:
 - `src/data/studio.ts` — figures from the studio pitch deck (12 shipped, 220K+
   installs, 400+ characters, 42% D1, 11% D7, 23min sessions, $0.01 CPI).
 - `src/data/characters.ts` — the 23-strong Sword Knight cast.
+
+Microcopy for the interactive layer lives in data files too, so it can be edited
+without touching components: `src/data/achievements.ts` (titles, hints),
+`src/data/dialogue.ts` (quest dialogue and email templates), `src/data/quips.ts`
+(the walker's hints) and `src/data/coins.ts`.
 
 ## Assets
 

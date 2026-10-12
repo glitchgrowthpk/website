@@ -116,11 +116,31 @@ const jsonLd = {
   ],
 };
 
+/**
+ * Runs before first paint. Restores display preferences and marks repeat
+ * visits so the boot screen and CRT overlay never flash in and back out.
+ * Everything here is optional — if storage is blocked the defaults apply.
+ */
+const preload = `(function(){try{var d=document.documentElement;d.classList.add("js");
+if(sessionStorage.getItem("glitch.booted"))d.setAttribute("data-booted","");
+var s=JSON.parse(localStorage.getItem("glitch.settings")||"{}");
+d.setAttribute("data-crt",s.crt===false?"off":"on");
+d.setAttribute("data-cursor",s.cursor===false?"off":"on");}catch(e){}})();`;
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${anton.variable} ${archivo.variable} ${mono.variable}`}>
+    // The preload script adds classes and data attributes to <html> before
+    // React hydrates, which is expected rather than a mismatch.
+    <html
+      lang="en"
+      className={`${anton.variable} ${archivo.variable} ${mono.variable}`}
+      suppressHydrationWarning
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: preload }} />
+      </head>
       <body className="antialiased">
         <a
           href="#main"

@@ -161,8 +161,85 @@ body {
 .hide-scroll::-webkit-scrollbar { display: none; }
 .hide-scroll { scrollbar-width: none; }
 
+/* ---------- scroll reveal (see components/RevealObserver.tsx) ---------- */
+.reveal-ready [data-reveal]:not([data-revealed]) { opacity: 0; }
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-reveal][data-revealed=""] {
+    animation: reveal-up 0.75s cubic-bezier(0.16, 1, 0.3, 1) var(--reveal-delay, 0ms) backwards;
+  }
+  [data-reveal="pop"][data-revealed=""] {
+    animation: reveal-pop 0.6s var(--ease-pop) var(--reveal-delay, 0ms) backwards;
+  }
+  [data-reveal="glitch"][data-revealed=""] {
+    animation: reveal-glitch 0.6s steps(1) var(--reveal-delay, 0ms) backwards;
+  }
+}
+@keyframes reveal-up { from { opacity: 0; translate: 0 28px; } }
+@keyframes reveal-pop { from { opacity: 0; scale: 0.88; } }
+@keyframes reveal-glitch {
+  0%  { opacity: 0; }
+  12% { opacity: 1; clip-path: inset(0 0 72% 0); translate: -8px 0; filter: drop-shadow(3px 0 0 #ff2d77) drop-shadow(-3px 0 0 #00e5ff); }
+  30% { clip-path: inset(40% 0 18% 0); translate: 6px 0; filter: drop-shadow(-3px 0 0 #ff2d77) drop-shadow(3px 0 0 #00e5ff); }
+  48% { clip-path: inset(8% 0 50% 0); translate: -3px 0; }
+  66% { clip-path: inset(0 0 6% 0); translate: 2px 0; filter: none; }
+  84% { clip-path: inset(0); translate: 0 0; }
+}
+
+/* ---------- CRT overlay (toggle: html[data-crt="off"]) ---------- */
+html:not([data-crt="off"]) body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  pointer-events: none;
+  background:
+    radial-gradient(130% 105% at 50% 50%, transparent 60%, rgba(0, 0, 0, 0.42) 100%),
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.024) 0px,
+      rgba(255, 255, 255, 0.024) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* the slow roll bar of an old tube */
+  html:not([data-crt="off"]) body::before {
+    content: "";
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 24vh;
+    z-index: 85;
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      rgba(0, 229, 255, 0.028) 45%,
+      rgba(255, 255, 255, 0.035) 50%,
+      transparent
+    );
+    animation: crt-roll 9s linear infinite;
+    will-change: transform;
+  }
+}
+@keyframes crt-roll {
+  from { transform: translateY(-26vh); }
+  to   { transform: translateY(104vh); }
+}
+
+/* ---------- view transitions ---------- */
+::view-transition { pointer-events: none; }
+/* The HUD is fixed: it should sit still and on top while content morphs. */
+::view-transition-group(hud) { animation: none; z-index: 100; }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;

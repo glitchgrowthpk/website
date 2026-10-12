@@ -14,10 +14,17 @@ export default function HudBar() {
     toggleSound,
     controlling,
     setControlling,
+    level,
+    levelProgress,
+    maxLevel,
+    achievements,
+    totalAchievements,
+    menu,
+    openMenu,
+    settings,
   } = useGame();
   const [progress, setProgress] = useState(0);
   const [active, setActive] = useState<string>("top");
-  const [open, setOpen] = useState(false);
   const touch = useIsTouch();
 
   useEffect(() => {
@@ -58,7 +65,14 @@ export default function HudBar() {
 
   return (
     <header className="fixed inset-x-0 top-0 z-50">
-      <div className="relative border-b border-edge/70 bg-void/80 backdrop-blur-md">
+      {/* Named so view transitions (the portfolio filter morph) keep the HUD
+          as its own layer above the moving cards. The name sits on the blurred
+          bar itself: a view-transition-name makes its element a backdrop
+          root, so on the <header> it would hide the page from this blur. */}
+      <div
+        className="relative border-b border-edge/70 bg-void/80 backdrop-blur-md"
+        style={{ viewTransitionName: "hud" }}
+      >
         <div className="mx-auto flex h-[var(--hud-h)] max-w-[1400px] items-center gap-3 px-4 sm:gap-5 sm:px-6">
           {/* wordmark */}
           <a
@@ -119,6 +133,46 @@ export default function HudBar() {
               </span>
             </div>
 
+            {/* level + achievements */}
+            <button
+              type="button"
+              onClick={() => {
+                sfx.menuOpen();
+                openMenu("achievements");
+              }}
+              onMouseEnter={() => sfx.hover()}
+              aria-haspopup="dialog"
+              aria-label={`Level ${level}${maxLevel ? " (max)" : ""}. ${achievements.length} of ${totalAchievements} achievements unlocked. Open achievements.`}
+              className="mono group relative flex items-center gap-1.5 overflow-hidden rounded-md border border-edge bg-panel px-2 py-1.5 text-[11px] tabular-nums transition-colors hover:border-lime"
+            >
+              <span
+                key={level}
+                className="font-bold text-lime motion-safe:animate-[lvlup_.7s_var(--ease-pop)]"
+              >
+                {maxLevel ? "MAX" : `LV${level}`}
+              </span>
+              <span className="hidden items-center gap-1 text-muted sm:flex">
+                <svg width="11" height="11" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M7 3h10v3h3v3a5 5 0 0 1-4.6 5A5 5 0 0 1 13 16.9V19h3v2H8v-2h3v-2.1A5 5 0 0 1 8.6 14 5 5 0 0 1 4 9V6h3V3zm0 5H6v1a3 3 0 0 0 1.2 2.4C7.1 10.6 7 9.8 7 9V8zm10 0v1c0 .8-.1 1.6-.2 2.4A3 3 0 0 0 18 9V8h-1z"
+                    fill="currentColor"
+                  />
+                </svg>
+                <span className="text-ink">{achievements.length}</span>
+                <span>/{totalAchievements}</span>
+              </span>
+              {/* XP toward the next level */}
+              <span
+                aria-hidden="true"
+                className="absolute inset-x-0 bottom-0 h-[2px] bg-panel-2"
+              >
+                <span
+                  className="block h-full bg-lime transition-[width] duration-500"
+                  style={{ width: `${(maxLevel ? 1 : levelProgress) * 100}%` }}
+                />
+              </span>
+            </button>
+
             {/* take control */}
             <button
               type="button"
@@ -127,6 +181,7 @@ export default function HudBar() {
                 setControlling(!controlling);
               }}
               aria-pressed={controlling}
+              aria-keyshortcuts={settings.shortcuts ? "G" : undefined}
               className={`mono hidden rounded-md border px-2.5 py-1.5 text-[11px] uppercase tracking-[0.14em] transition-colors sm:block ${
                 controlling
                   ? "border-lime bg-lime/15 text-lime"
@@ -134,7 +189,12 @@ export default function HudBar() {
               }`}
             >
               {controlling ? "Control ON" : "Control"}
-              {!touch && <span className="ml-1.5 text-muted">G</span>}
+              {/* The key hint is visual only; aria-keyshortcuts carries it. */}
+              {!touch && settings.shortcuts && (
+                <span aria-hidden="true" className="ml-1.5 text-muted">
+                  G
+                </span>
+              )}
             </button>
 
             {/* sound */}
@@ -143,7 +203,7 @@ export default function HudBar() {
               onClick={toggleSound}
               aria-pressed={sound}
               aria-label={sound ? "Turn sound off" : "Turn sound on"}
-              className={`rounded-md border px-2 py-1.5 transition-colors ${
+              className={`hidden rounded-md border px-2 py-1.5 transition-colors min-[400px]:block ${
                 sound
                   ? "border-cyan bg-cyan/15 text-cyan"
                   : "border-edge bg-panel text-muted hover:text-ink"
@@ -173,23 +233,29 @@ export default function HudBar() {
               </svg>
             </button>
 
-            {/* mobile menu */}
+            {/* pause menu — also the section menu on small screens */}
             <button
               type="button"
-              className="rounded-md border border-edge bg-panel px-2 py-1.5 text-muted md:hidden"
-              aria-expanded={open}
-              aria-controls="hud-mobile-nav"
-              onClick={() => setOpen((o) => !o)}
+              onClick={() => {
+                sfx.menuOpen();
+                openMenu("main");
+              }}
+              onMouseEnter={() => sfx.hover()}
+              aria-haspopup="dialog"
+              aria-expanded={menu !== null}
+              aria-keyshortcuts={settings.shortcuts ? "P" : undefined}
+              className="mono flex items-center gap-1.5 rounded-md border border-edge bg-panel px-2 py-1.5 text-[11px] uppercase tracking-[0.14em] text-muted transition-colors hover:border-cyan hover:text-ink"
             >
-              <span className="sr-only">Menu</span>
               <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d={open ? "M5 5l14 14M19 5L5 19" : "M4 7h16M4 12h16M4 17h16"}
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
+                <rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" />
+                <rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" />
               </svg>
+              <span className="sr-only sm:not-sr-only">Menu</span>
+              {!touch && settings.shortcuts && (
+                <span aria-hidden="true" className="hidden text-muted lg:inline">
+                  P
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -210,27 +276,7 @@ export default function HudBar() {
         </div>
       </div>
 
-      {open && (
-        <nav
-          id="hud-mobile-nav"
-          aria-label="Sections"
-          className="border-b border-edge bg-abyss/97 backdrop-blur-md md:hidden"
-        >
-          <ul className="grid grid-cols-2 gap-1 p-3">
-            {SECTIONS.map((s) => (
-              <li key={s.id}>
-                <a
-                  href={`#${s.id}`}
-                  onClick={() => setOpen(false)}
-                  className="mono block rounded-md border border-edge bg-panel px-3 py-2.5 text-[11px] uppercase tracking-[0.18em] text-muted"
-                >
-                  {s.label}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      )}
+      <style>{`@keyframes lvlup{0%{transform:scale(1.9);filter:brightness(2)}100%{transform:scale(1);filter:none}}`}</style>
     </header>
   );
 }

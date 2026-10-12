@@ -77,3 +77,42 @@ export function useIsTouch() {
   }, []);
   return touch;
 }
+
+/** Precise pointer (mouse / trackpad) that can hover. False on touch-first devices. */
+export function useFinePointer() {
+  const [fine, setFine] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const apply = () => setFine(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+  return fine;
+}
+
+/**
+ * Live on-screen tracking (unlike `useInView`, which fires once). Returns a ref
+ * object whose `.current` flips as the element enters and leaves the viewport —
+ * read it inside rAF loops to pause work that nobody can see, without
+ * re-rendering.
+ */
+export function useOnScreenRef<T extends HTMLElement>(
+  target: React.RefObject<T | null>,
+  rootMargin = "0px",
+) {
+  const visible = useRef(false);
+  useEffect(() => {
+    const el = target.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        visible.current = entry.isIntersecting;
+      },
+      { rootMargin, threshold: 0 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [target, rootMargin]);
+  return visible;
+}

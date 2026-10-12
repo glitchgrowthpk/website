@@ -34,6 +34,15 @@ export function setSoundEnabled(on: boolean) {
   if (on) ensure();
 }
 
+/**
+ * The shared AudioContext, created on demand. The music engine uses this so
+ * the site never runs two contexts. Only call it in response to a user
+ * gesture (or after one) — browsers keep it suspended otherwise.
+ */
+export function audioContext(): AudioContext | null {
+  return ensure();
+}
+
 export function isSoundEnabled() {
   return enabled;
 }
@@ -71,7 +80,7 @@ function tone({
   osc.stop(t0 + dur + 0.02);
 }
 
-function noise(dur = 0.16, gain = 0.35, delay = 0) {
+function noise(dur = 0.16, gain = 0.35, delay = 0, freq = 1400) {
   const c = ensure();
   if (!c || !master) return;
   const t0 = c.currentTime + delay;
@@ -83,7 +92,7 @@ function noise(dur = 0.16, gain = 0.35, delay = 0) {
   src.buffer = buf;
   const filt = c.createBiquadFilter();
   filt.type = "bandpass";
-  filt.frequency.value = 1400;
+  filt.frequency.value = freq;
   const g = c.createGain();
   g.gain.setValueAtTime(gain, t0);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
@@ -145,6 +154,70 @@ export const sfx = {
     if (!enabled) return;
     [659, 784, 988, 1318, 1568].forEach((f, i) =>
       tone({ freq: f, dur: 0.14, gain: 0.3, delay: i * 0.07 }),
+    );
+  },
+  /** Achievement popup: a bright rising arpeggio with a sparkle on top. */
+  achievement() {
+    if (!enabled) return;
+    [784, 988, 1175, 1568].forEach((f, i) =>
+      tone({ freq: f, dur: 0.12, voice: "square", gain: 0.26, delay: i * 0.065 }),
+    );
+    tone({ freq: 2093, to: 3136, dur: 0.22, voice: "triangle", gain: 0.18, delay: 0.27 });
+  },
+  /** Pause menu opening — the classic falling two-note blip. */
+  menuOpen() {
+    if (!enabled) return;
+    tone({ freq: 988, dur: 0.06, gain: 0.3 });
+    tone({ freq: 659, dur: 0.1, gain: 0.3, delay: 0.07 });
+  },
+  menuClose() {
+    if (!enabled) return;
+    tone({ freq: 659, dur: 0.06, gain: 0.3 });
+    tone({ freq: 988, dur: 0.1, gain: 0.3, delay: 0.07 });
+  },
+  /** Cursor moving between menu items. */
+  menuMove() {
+    if (!enabled) return;
+    tone({ freq: 1175, dur: 0.03, voice: "square", gain: 0.14 });
+  },
+  back() {
+    if (!enabled) return;
+    tone({ freq: 523, to: 330, dur: 0.09, voice: "triangle", gain: 0.25 });
+  },
+  /** One typewriter tick. Very quiet — it fires per character. */
+  type() {
+    if (!enabled) return;
+    tone({ freq: 1400 + Math.random() * 300, dur: 0.018, voice: "square", gain: 0.06 });
+  },
+  /** CRT power-on: a rising sweep and a burst of static. */
+  boot() {
+    if (!enabled) return;
+    tone({ freq: 90, to: 1200, dur: 0.38, voice: "sawtooth", gain: 0.16 });
+    noise(0.3, 0.12, 0.05, 3200);
+  },
+  /** Fighter-select impact. */
+  vs() {
+    if (!enabled) return;
+    noise(0.25, 0.3, 0, 900);
+    tone({ freq: 110, to: 55, dur: 0.3, voice: "sawtooth", gain: 0.34 });
+    tone({ freq: 880, to: 1760, dur: 0.16, voice: "square", gain: 0.2, delay: 0.12 });
+  },
+  /** Fast travel / panel slide. */
+  whoosh() {
+    if (!enabled) return;
+    noise(0.22, 0.14, 0, 2400);
+  },
+  /** Something refused (locked item, illegal move). */
+  error() {
+    if (!enabled) return;
+    tone({ freq: 140, dur: 0.12, voice: "sawtooth", gain: 0.22 });
+    tone({ freq: 120, dur: 0.14, voice: "sawtooth", gain: 0.22, delay: 0.1 });
+  },
+  /** Healing / buff applied. */
+  heal() {
+    if (!enabled) return;
+    [523, 784, 1046].forEach((f, i) =>
+      tone({ freq: f, dur: 0.1, voice: "triangle", gain: 0.24, delay: i * 0.05 }),
     );
   },
 };
